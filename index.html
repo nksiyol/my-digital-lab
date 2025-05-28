@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- YouTube Iframe API -->
     <script src="https://www.youtube.com/iframe_api"></script>
+    <!-- JSZip for ZIP file creation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         .waveform {
             height: 100px;
@@ -298,6 +300,11 @@
             let youtubeTitle = '';
             let youtubeVideoId = '';
 
+            // Load FFmpeg.js for client-side video processing
+            const ffmpegScript = document.createElement('script');
+            ffmpegScript.src = 'https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+            document.head.appendChild(ffmpegScript);
+
             // Event Listeners
             fileInput.addEventListener('change', handleFileSelect);
             loadYoutubeBtn.addEventListener('click', useYouTubeVideo);
@@ -317,7 +324,6 @@
                 // Player will be created when YouTube URL is loaded
             };
 
-            // Functions
             function handleFileSelect(e) {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -351,14 +357,12 @@
                     return;
                 }
 
-                // Extract video ID from URL
                 youtubeVideoId = extractYouTubeId(url);
                 if (!youtubeVideoId) {
                     alert('Please enter a valid YouTube URL');
                     return;
                 }
 
-                // Clean up any existing video
                 if (videoBlobUrl) {
                     URL.revokeObjectURL(videoBlobUrl);
                     videoBlobUrl = null;
@@ -369,7 +373,6 @@
                 videoType = 'youtube';
                 showUploadProgress('Loading YouTube video...');
 
-                // Load YouTube player
                 loadYouTubeVideo(youtubeVideoId);
             }
 
@@ -380,7 +383,6 @@
             }
 
             function loadYouTubeVideo(videoId) {
-                // First get video info
                 fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
                     .then(response => {
                         if (!response.ok) throw new Error('Invalid YouTube URL');
@@ -389,19 +391,12 @@
                     .then(data => {
                         youtubeTitle = data.title;
                         youtubeThumbnail = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-                        
-                        // Set up player overlay
                         playerOverlay.style.background = `url('${youtubeThumbnail}') center/cover no-repeat`;
                         playerOverlay.classList.remove('hidden');
-                        
-                        // Update progress bar
                         updateProgress(50, 'Loading YouTube player...');
-                        
-                        // Create YouTube player
                         if (!window.YT) {
                             throw new Error('YouTube API not loaded');
                         }
-                        
                         youtubePlayer = new YT.Player('youtubePlayer', {
                             height: '100%',
                             width: '100%',
@@ -419,8 +414,6 @@
                                 'onError': onYouTubePlayerError
                             }
                         });
-                        
-                        youtubePlayerElement.classList.remove('hidden');
                         youtubePlayerElement.classList.remove('hidden');
                     })
                     .catch(error => {
@@ -433,25 +426,21 @@
             function onYouTubePlayerReady(event) {
                 updateProgress(80, 'Preparing video...');
                 setTimeout(() => {
-                    // Get duration when metadata is available
-                    setTimeout(() => {
-                        videoDuration = event.target.getDuration();
-                        if (videoDuration && !isNaN(videoDuration)) {
-                            showVideoUI();
-                            uploadProgress.classList.add('hidden');
-                        } else {
-                            // If duration isn't available right away, keep checking
-                            const interval = setInterval(() => {
-                                const duration = event.target.getDuration();
-                                if (duration && !isNaN(duration)) {
-                                    clearInterval(interval);
-                                    videoDuration = duration;
-                                    showVideoUI();
-                                    uploadProgress.classList.add('hidden');
-                                }
-                            }, 500);
-                        }
-                    }, 500);
+                    videoDuration = event.target.getDuration();
+                    if (videoDuration && !isNaN(videoDuration)) {
+                        showVideoUI();
+                        uploadProgress.classList.add('hidden');
+                    } else {
+                        const interval = setInterval(() => {
+                            const duration = event.target.getDuration();
+                            if (duration && !isNaN(duration)) {
+                                clearInterval(interval);
+                                videoDuration = duration;
+                                showVideoUI();
+                                uploadProgress.classList.add('hidden');
+                            }
+                        }, 500);
+                    }
                 }, 1000);
             }
 
@@ -520,7 +509,6 @@
                     const currentSubtitle = subtitles.find(sub => 
                         currentTime >= sub.start && currentTime <= sub.end
                     );
-                    
                     if (currentSubtitle) {
                         subtitleContainer.textContent = currentSubtitle.text;
                         subtitleContainer.classList.remove('hidden');
@@ -541,19 +529,14 @@
                 videoSection.classList.remove('hidden');
                 emptyState.classList.add('hidden');
                 
-                // Wait for metadata to load
                 videoPlayer.onloadedmetadata = () => {
                     videoDuration = videoPlayer.duration;
                     updateDurationDisplay();
                     generateWaveformData();
                     renderWaveform();
                     updateVideoTime();
-                    
-                    // Hide upload progress
                     uploadProgress.classList.add('hidden');
                 };
-
-                // Handle errors
                 videoPlayer.onerror = () => {
                     alert('Error loading video file');
                     uploadProgress.classList.add('hidden');
@@ -614,7 +597,6 @@
                     durationEl.textContent = '00:00';
                     return;
                 }
-                
                 const minutes = Math.floor(videoDuration / 60);
                 const seconds = Math.floor(videoDuration % 60);
                 durationEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
@@ -625,13 +607,9 @@
                 const minutes = Math.floor(currentTime / 60);
                 const seconds = Math.floor(currentTime % 60);
                 currentTimeEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-                // Update waveform progress
                 const progressPercent = (currentTime / videoDuration) * 100;
                 waveformProgress.style.width = `${progressPercent}%`;
                 waveformMarker.style.left = `${progressPercent}%`;
-
-                // Update subtitle display if we have subtitles
                 updateSubtitles(currentTime);
             }
 
@@ -653,30 +631,21 @@
             }
 
             function generateWaveformData() {
-                // In a real app, you would analyze the audio to generate waveform data
-                // For this demo, we'll generate random data
                 waveformData = [];
                 const segments = 200;
-                
                 for (let i = 0; i < segments; i++) {
-                    waveformData.push(Math.random() * 0.8 + 0.2); // Values between 0.2 and 1.0
+                    waveformData.push(Math.random() * 0.8 + 0.2);
                 }
             }
 
             function renderWaveform() {
-                // Clear any existing highlights
                 waveform.innerHTML = `
                     <div class="waveform-progress"></div>
                     <div class="waveform-marker"></div>
                 `;
-                
-                // Get references again after clearing
                 waveformProgress = document.querySelector('.waveform-progress');
                 waveformMarker = document.querySelector('.waveform-marker');
-                
-                // Create waveform visualization
                 const segmentWidth = waveform.offsetWidth / waveformData.length;
-                
                 waveformData.forEach((value, index) => {
                     const bar = document.createElement('div');
                     bar.className = 'absolute bottom-0 bg-purple-400';
@@ -693,29 +662,15 @@
                     alert('Video must be at least 1 minute long to generate highlights');
                     return;
                 }
-                
                 isProcessing = true;
-                
-                // Show processing state
                 processBtn.innerHTML = '<i class="fas fa-spinner loading-spinner mr-2"></i> Processing...';
                 processBtn.disabled = true;
-                
-                // Simulate AI processing delay
                 setTimeout(() => {
-                    // Generate mock highlights and subtitles
                     generateMockHighlights();
                     generateMockSubtitles();
-                    
-                    // Display highlights on waveform
                     displayHighlightsOnWaveform();
-                    
-                    // Display highlight clips
                     displayHighlightClips();
-                    
-                    // Show results section
                     resultsSection.classList.remove('hidden');
-                    
-                    // Reset button
                     processBtn.innerHTML = '<i class="fas fa-magic mr-2"></i> Generate 1-Min Highlights';
                     processBtn.disabled = false;
                     isProcessing = false;
@@ -723,26 +678,17 @@
             }
 
             function generateMockHighlights() {
-                // In a real app, this would come from your AI analysis
                 highlights = [];
-                
-                // Determine how many 1-minute highlights we can have
                 const maxHighlights = Math.floor(videoDuration / 60);
-                const highlightCount = Math.min(maxHighlights, 3); // Max 3 highlights for demo
-                
-                // Generate highlights at approximately 25%, 50%, 75% of video
+                const highlightCount = Math.min(maxHighlights, 3);
                 for (let i = 0; i < highlightCount; i++) {
-                    // Get a position in the video (25%, 50%, 75%)
                     const positionPercent = 0.25 + (0.25 * i);
                     let start = positionPercent * videoDuration;
-                    
-                    // Make sure highlight doesn't go past end of video
                     start = Math.min(start, videoDuration - 60);
-                    
                     highlights.push({
                         start: start,
-                        end: start + 60, // Exactly 1 minute
-                        confidence: Math.random() * 0.5 + 0.5, // 0.5-1.0
+                        end: start + 60,
+                        confidence: Math.random() * 0.5 + 0.5,
                         title: `Best Moment ${i+1}`,
                         description: `Watch this exciting 1-minute highlight reel from the video. Automatically generated by AI analysis.`,
                         id: `highlight_${Date.now()}_${i}`,
@@ -751,16 +697,11 @@
                             (videoBlobUrl ? videoBlobUrl : '')
                     });
                 }
-                
-                // Sort by start time
                 highlights.sort((a, b) => a.start - b.start);
             }
 
             function generateMockSubtitles() {
-                // In a real app, this would come from speech-to-text
                 subtitles = [];
-                
-                // Generate subtitles for each highlight
                 highlights.forEach((highlight, i) => {
                     const textOptions = [
                         "This is the most exciting part of the video!",
@@ -769,7 +710,6 @@
                         "Highlight reel of the most important content.",
                         "This 60-second clip contains the key takeaways."
                     ];
-                    
                     subtitles.push({
                         start: highlight.start,
                         end: highlight.end,
@@ -787,8 +727,6 @@
                     clip.title = `1-min Highlight: ${formatTime(highlight.start)} - ${formatTime(highlight.end)}`;
                     clip.dataset.clipId = highlight.id;
                     waveform.appendChild(clip);
-                    
-                    // Make highlight clip clickable
                     clip.addEventListener('click', (e) => {
                         e.stopPropagation();
                         seekToHighlight(highlight.start);
@@ -813,11 +751,8 @@
             function displayHighlightClips() {
                 highlightClips.innerHTML = '';
                 highlightResults.innerHTML = '';
-                
                 const titleBase = videoType === 'youtube' ? youtubeTitle : 'Your Video';
-                
                 highlights.forEach((highlight, index) => {
-                    // Create clip card for waveform section
                     const clipCard = document.createElement('div');
                     clipCard.className = 'bg-gray-700 rounded-lg p-4 flex items-start gap-4 hover:bg-gray-600 transition-colors cursor-pointer';
                     clipCard.addEventListener('click', () => seekToHighlight(highlight.start));
@@ -832,8 +767,7 @@
                         </div>
                     `;
                     highlightClips.appendChild(clipCard);
-                    
-                    // Create result card for results section
+
                     const resultCard = document.createElement('div');
                     resultCard.className = 'bg-gray-800 rounded-xl overflow-hidden border border-gray-700 clip-preview';
                     resultCard.setAttribute('data-clip-id', highlight.id);
@@ -841,13 +775,15 @@
                         <div class="relative">
                             <div class="w-full bg-black aspect-video flex items-center justify-center relative">
                                 ${videoType === 'youtube' ? 
-                                    `<img src="${highlight.previewImage}" alt="${titleBase}" class="w-full h-full object-cover">
-                                     <div class="clip-overlay absolute inset-0 flex items-center justify-center bg-black/50">
-                                        <div class="bg-white/20 rounded-full w-16 h-16 flex items-center justify-center backdrop-blur-sm">
-                                            <i class="fas fa-play text-white text-2xl"></i>
+                                    `<div class="youtube-clip-preview w-full h-full" data-clip-id="${highlight.id}">
+                                        <img src="${highlight.previewImage}" alt="${titleBase}" class="w-full h-full object-cover">
+                                        <div class="clip-overlay absolute inset-0 flex items-center justify-center bg-black/50">
+                                            <div class="bg-white/20 rounded-full w-16 h-16 flex items-center justify-center backdrop-blur-sm">
+                                                <i class="fas fa-play text-white text-2xl"></i>
+                                            </div>
                                         </div>
-                                     </div>` : 
-                                    `<video class="w-full h-full" muted>
+                                    </div>` : 
+                                    `<video class="w-full h-full clip-preview-video" data-clip-id="${highlight.id}" data-start="${highlight.start}" data-end="${highlight.end}" muted>
                                         <source src="${videoBlobUrl}" type="video/mp4">
                                     </video>
                                     <div class="clip-overlay absolute inset-0 flex items-center justify-center bg-black/50">
@@ -877,16 +813,43 @@
                         </div>
                     `;
                     highlightResults.appendChild(resultCard);
-                    
-                    // Add click handler to preview the clip
-                    const videoPreview = resultCard.querySelector('video, img');
-                    videoPreview.parentElement.addEventListener('click', (e) => {
+                });
+
+                // Add event listeners for clip previews
+                document.querySelectorAll('.clip-preview-video').forEach(video => {
+                    const start = parseFloat(video.dataset.start);
+                    const end = parseFloat(video.dataset.end);
+                    video.addEventListener('click', (e) => {
                         e.preventDefault();
-                        seekToHighlight(highlight.start);
+                        video.currentTime = start;
+                        video.play();
+                    });
+                    video.addEventListener('timeupdate', () => {
+                        if (video.currentTime >= end) {
+                            video.pause();
+                            video.currentTime = start;
+                        }
                     });
                 });
-                
-                // Add event listeners to download buttons
+
+                document.querySelectorAll('.youtube-clip-preview').forEach(div => {
+                    const clipId = div.dataset.clipId;
+                    const highlight = highlights.find(h => h.id === clipId);
+                    div.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (youtubePlayer) {
+                            youtubePlayer.seekTo(highlight.start, true);
+                            youtubePlayer.playVideo();
+                            // Stop after the clip duration
+                            setTimeout(() => {
+                                if (youtubePlayer.getPlayerState() === YT.PlayerState.PLAYING) {
+                                    youtubePlayer.pauseVideo();
+                                }
+                            }, (highlight.end - highlight.start) * 1000);
+                        }
+                    });
+                });
+
                 document.querySelectorAll('.download-clip-btn').forEach(btn => {
                     btn.addEventListener('click', function(e) {
                         e.stopPropagation();
@@ -902,116 +865,164 @@
                 return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
             }
 
-            function downloadHighlight(clipId) {
+            async function downloadHighlight(clipId) {
                 const highlight = highlights.find(h => h.id === clipId);
                 if (!highlight) return;
-                
-                // Show exporting status
+
                 exportStatus.classList.remove('hidden');
                 exportProgress.style.width = '0%';
                 exportPercent.textContent = '0%';
-                
-                // Simulate export progress
-                let progress = 0;
-                const interval = setInterval(() => {
-                    progress += Math.random() * 10;
-                    if (progress >= 100) {
-                        progress = 100;
-                        clearInterval(interval);
-                        
-                        // After a small delay, show completion
-                        setTimeout(() => {
-                            completeExport(highlight);
-                        }, 500);
-                    }
-                    exportProgress.style.width = `${progress}%`;
-                    exportPercent.textContent = `${Math.floor(progress)}%`;
-                }, 100);
-            }
 
-            function completeExport(highlight) {
-                exportProgress.style.width = '100%';
-                exportPercent.textContent = '100%';
-                
-                setTimeout(() => {
-                    // Create a dummy download link (in a real app, this would be your exported clip)
-                    const dummyDownloadUrl = videoType === 'youtube' ? 
-                        `https://www.youtube.com/watch?v=${youtubeVideoId}&t=${Math.floor(highlight.start)}` :
-                        videoBlobUrl;
-                    
+                if (videoType === 'youtube') {
+                    // YouTube downloading is not supported
+                    exportProgress.style.width = '100%';
+                    exportPercent.textContent = '100%';
+                    setTimeout(() => {
+                        const a = document.createElement('a');
+                        a.href = `https://www.youtube.com/watch?v=${youtubeVideoId}&t=${Math.floor(highlight.start)}`;
+                        a.style.display = 'none';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        exportStatus.classList.add('hidden');
+                        alert('YouTube video downloading is not supported due to API restrictions. Redirecting to the video at the highlight timestamp.');
+                    }, 500);
+                    return;
+                }
+
+                // Local video: Use FFmpeg.js to trim the clip
+                if (typeof FFmpeg === 'undefined') {
+                    alert('FFmpeg.js not loaded. Please try again.');
+                    exportStatus.classList.add('hidden');
+                    return;
+                }
+
+                const { createFFmpeg, fetchFile } = FFmpeg;
+                const ffmpeg = createFFmpeg({ log: false });
+                try {
+                    await ffmpeg.load();
+                    exportProgress.style.width = '20%';
+                    exportPercent.textContent = '20%';
+
+                    // Write input file
+                    const inputName = 'input.mp4';
+                    const outputName = `highlight_${formatTime(highlight.start)}_${formatTime(highlight.end)}.mp4`;
+                    ffmpeg.FS('writeFile', inputName, await fetchFile(videoFile));
+
+                    // Trim video
+                    await ffmpeg.run('-i', inputName, '-ss', `${highlight.start}`, '-t', '60', '-c', 'copy', outputName);
+                    exportProgress.style.width = '80%';
+                    exportPercent.textContent = '80%';
+
+                    // Read output
+                    const data = ffmpeg.FS('readFile', outputName);
+                    const blob = new Blob([data.buffer], { type: 'video/mp4' });
+                    const url = URL.createObjectURL(blob);
+
+                    // Download
                     const a = document.createElement('a');
-                    a.href = dummyDownloadUrl;
-                    a.download = `highlight_${formatTime(highlight.start)}_${formatTime(highlight.end)}.mp4`;
+                    a.href = url;
+                    a.download = outputName;
                     a.style.display = 'none';
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
-                    
+                    URL.revokeObjectURL(url);
+
+                    exportProgress.style.width = '100%';
+                    exportPercent.textContent = '100%';
+                    setTimeout(() => {
+                        exportStatus.classList.add('hidden');
+                    }, 500);
+                } catch (error) {
+                    console.error('FFmpeg error:', error);
+                    alert('Error processing video clip. Please try again.');
                     exportStatus.classList.add('hidden');
-                    
-                    if (videoType === 'youtube') {
-                        alert(`In a real application, this would download the 1-minute YouTube clip from ${formatTime(highlight.start)} to ${formatTime(highlight.end)}. For now, it links to the YouTube video at the start time.`);
-                    } else {
-                        alert(`In a real application, this would download just the 1-minute clip from ${formatTime(highlight.start)} to ${formatTime(highlight.end)}. For demo purposes, it downloads the full video.`);
-                    }
-                }, 500);
+                } finally {
+                    ffmpeg.FS('unlink', inputName);
+                    ffmpeg.FS('unlink', outputName);
+                    ffmpeg.terminate();
+                }
             }
 
-            function handleDownloadAll() {
+            async function handleDownloadAll() {
                 if (highlights.length === 0) return;
-                
-                // Show exporting status
+
                 exportStatus.classList.remove('hidden');
                 exportProgress.style.width = '0%';
                 exportPercent.textContent = '0%';
-                
-                // Simulate export progress for all clips
-                let progress = 0;
-                const interval = setInterval(() => {
-                    progress += Math.random() * 5;
-                    if (progress >= 100) {
-                        progress = 100;
-                        clearInterval(interval);
-                        
-                        setTimeout(() => {
-                            completeAllExport();
-                        }, 500);
-                    }
-                    exportProgress.style.width = `${progress}%`;
-                    exportPercent.textContent = `${Math.floor(progress)}%`;
-                }, 100);
-            }
 
-            function completeAllExport() {
-                exportProgress.style.width = '100%';
-                exportPercent.textContent = '100%';
-                
-                setTimeout(() => {
-                    // Create a dummy ZIP download (in a real app, this would package all clips)
-                    let downloadUrl;
-                    let downloadText;
-                    
-                    if (videoType === 'youtube') {
-                        downloadUrl = `https://www.youtube.com/watch?v=${youtubeVideoId}`;
-                        downloadText = `In a real application, this would download all 1-minute YouTube highlights as a ZIP file. For now, it links to the full YouTube video.`;
-                    } else {
-                        downloadUrl = videoBlobUrl;
-                        downloadText = `In a real application, this would download all 1-minute highlights as a ZIP file. For demo purposes, it downloads the full video.`;
+                if (videoType === 'youtube') {
+                    exportProgress.style.width = '100%';
+                    exportPercent.textContent = '100%';
+                    setTimeout(() => {
+                        const a = document.createElement('a');
+                        a.href = `https://www.youtube.com/watch?v=${youtubeVideoId}`;
+                        a.style.display = 'none';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        exportStatus.classList.add('hidden');
+                        alert('YouTube video downloading is not supported due to API restrictions. Redirecting to the full video.');
+                    }, 500);
+                    return;
+                }
+
+                if (typeof FFmpeg === 'undefined') {
+                    alert('FFmpeg.js not loaded. Please try again.');
+                    exportStatus.classList.add('hidden');
+                    return;
+                }
+
+                const { createFFmpeg, fetchFile } = FFmpeg;
+                const ffmpeg = createFFmpeg({ log: false });
+                try {
+                    await ffmpeg.load();
+                    exportProgress.style.width = '20%';
+                    exportPercent.textContent = '20%';
+
+                    const inputName = 'input.mp4';
+                    ffmpeg.FS('writeFile', inputName, await fetchFile(videoFile));
+
+                    const zip = new JSZip();
+                    for (let i = 0; i < highlights.length; i++) {
+                        const highlight = highlights[i];
+                        const outputName = `highlight_${formatTime(highlight.start)}_${formatTime(highlight.end)}.mp4`;
+                        await ffmpeg.run('-i', inputName, '-ss', `${highlight.start}`, '-t', '60', '-c', 'copy', outputName);
+                        const data = ffmpeg.FS('readFile', outputName);
+                        zip.file(outputName, data);
+                        ffmpeg.FS('unlink', outputName);
+                        exportProgress.style.width = `${20 + (i + 1) * (80 / highlights.length)}%`;
+                        exportPercent.textContent = `${Math.floor(20 + (i + 1) * (80 / highlights.length))}%`;
                     }
-                    
+
+                    const zipBlob = await zip.generateAsync({ type: 'blob' });
+                    const zipUrl = URL.createObjectURL(zipBlob);
                     const a = document.createElement('a');
-                    a.href = downloadUrl;
-                    a.download = `highlights_${videoType === 'youtube' ? youtubeTitle : 'your_video'}.zip`;
+                    a.href = zipUrl;
+                    a.download = `highlights_${Date.now()}.zip`;
                     a.style.display = 'none';
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
-                    
+                    URL.revokeObjectURL(zipUrl);
+
+                    exportProgress.style.width = '100%';
+                    exportPercent.textContent = '100%';
+                    setTimeout(() => {
+                        exportStatus.classList.add('hidden');
+                    }, 500);
+                } catch (error) {
+                    console.error('FFmpeg error:', error);
+                    alert('Error processing video clips. Please try again.');
                     exportStatus.classList.add('hidden');
-                    alert(downloadText);
-                }, 500);
+                } finally {
+                    ffmpeg.FS('unlink', inputName);
+                    ffmpeg.terminate();
+                }
             }
         });
     </script>
-<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made by -- <a href="https://www.instagram.com/nk.siyol" style="color: #fff;text-decoration: underline;" target="_blank" >Naresh</a>  <a href="https://www.instagram.com/nk.siyol" style="color: #fff;text-decoration: underline;" target="_blank" >Siyol</a></p></body>
+    <p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px; position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made by -- <a href="https://www.instagram.com/nk.siyol" style="color: #fff; text-decoration: underline;" target="_blank">Naresh</a> <a href="https://www.instagram.com/nk.siyol" style="color: #fff; text-decoration: underline;" target="_blank">Siyol</a></p>
+</body>
 </html>
