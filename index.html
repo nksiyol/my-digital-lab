@@ -1064,25 +1064,23 @@
       
         <!-- EmailJS SDK -->
 
-             (function() {
-             // Initialize EmailJS with your Public Key
-                     emailjs.init("B_DXStIfwPBgIKcQd"); // Your EmailJS Public Key
-                 })();
+            (function() {
+  emailjs.init("B_DXStIfwPBgIKcQd");
+})();
 
-             window.onload = function() {
-                document.getElementById('contact-form').addEventListener('submit', function(event) {
-                         event.preventDefault(); // Prevent default form submission
+window.onload = function() {
+  document.getElementById('contact-form').addEventListener('submit', function(event) {
+    event.preventDefault();
 
-            // Send form data via EmailJS
-                 emailjs.sendForm('service_arcyczl', 'template_2mlj5hd', this)
-                .then(() => {
-                    alert('Message sent successfully!');
-                    this.reset(); // Clear form after successful submission
-                }, (error) => {
-                    alert('Failed to send message: ' + JSON.stringify(error));
-                });
-        });
-    };
+    emailjs.sendForm('service_arcyczl', 'template_n6nsraa', this) // <- fix your template ID here
+    .then(() => {
+      alert('Message sent successfully!');
+      this.reset();
+    }, (error) => {
+      alert('Failed to send message: ' + JSON.stringify(error));
+    });
+  });
+};
         
     </script>
 </body>
